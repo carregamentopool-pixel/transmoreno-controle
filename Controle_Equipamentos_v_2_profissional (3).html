@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de Equipamentos V7</title>
+<style>
+:root{--orange:#ff6a00;--dark:#1f2937;--bg:#fff7f0;}
+body{font-family:Arial;margin:0;background:var(--bg);} 
+header{background:var(--orange);color:#fff;padding:10px;text-align:center;font-size:22px;font-weight:bold;box-shadow:0 2px 5px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;gap:15px;} 
+.logo{height:40px;}  
+.container{padding:20px;max-width:1100px;margin:auto;} 
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;}
+.card{background:#fff;border-radius:12px;padding:20px;text-align:center;box-shadow:0 4px 10px rgba(0,0,0,0.08);cursor:pointer;border-top:4px solid var(--orange);} 
+.hidden{display:none;}
+.table{width:100%;border-collapse:collapse;margin-top:10px;background:#fff;}
+.table th,.table td{border:1px solid #ddd;padding:8px;font-size:13px;}
+.table th{background:var(--dark);color:#fff;}
+input,select{padding:6px;border-radius:5px;border:1px solid #ccc;margin:5px;} 
+button{padding:8px 12px;border:none;border-radius:6px;cursor:pointer;margin:5px;} 
+.btn{background:var(--orange);color:#fff;} 
+.btn-dark{background:var(--dark);color:#fff;} 
+.dashboard{display:flex;gap:15px;margin-top:15px;flex-wrap:wrap;}
+.box{flex:1;min-width:150px;background:#fff;padding:15px;border-radius:10px;text-align:center;box-shadow:0 2px 5px rgba(0,0,0,0.1);} 
+</style>
+</head>
+<body>
+<header>
+<img src="logo.png" class="logo">
+<span>TRANSMORENO - Controle de Equipamentos</span>
+</header>
+
+<!-- MENU -->
+<div class="container" id="menu">
+<div class="grid">
+<div class="card" onclick="verDashboardGeral()">📊 Dashboard Geral</div>
+<div class="card" onclick="abrirTela('cp')">📌 Contra Pino</div>
+<div class="card" onclick="abrirTela('pare')">🛑 Placa PARE</div>
+<div class="card" onclick="abrirTela('trava')">🧱 Trava Rodas</div>
+<div class="card" onclick="abrirHistorico()">📊 Relatórios</div>
+</div>
+</div>
+
+<!-- DASHBOARD GERAL -->
+<div class="container hidden" id="dashboardGeral">
+<button class="btn-dark" onclick="voltar()">⬅ Voltar</button>
+<h2>Dashboard por Pátio</h2>
+
+<h3>CAS</h3>
+<div id="graficoCAS" class="dashboard"></div>
+
+<h3>13-000</h3>
+<div id="grafico13000" class="dashboard"></div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="container hidden" id="tela">
+<button class="btn-dark" onclick="voltar()">⬅ Voltar</button>
+<h2 id="titulo"></h2>
+
+<h3>📍 Pátio CAS</h3>
+<div class="dashboard" id="dashCAS"></div>
+
+<h3>📍 Pátio 13-000</h3>
+<div class="dashboard" id="dash13000"></div>
+
+<select id="patio">
+<option value="CAS">Pátio CAS</option>
+<option value="13000">Pátio 13-000</option>
+</select>
+
+<input id="nome" placeholder="Colaborador">
+<input id="numero" placeholder="Nº Equipamento">
+<button class="btn" onclick="registrar()">Registrar</button>
+<button class="btn" onclick="registrarPerda()">Perda</button>
+
+<table class="table">
+<thead>
+<tr>
+<th>Data</th>
+<th>Pátio</th>
+<th>Colaborador</th>
+<th>Equipamento</th>
+</tr>
+</thead>
+<tbody id="tabela"></tbody>
+</table>
+</div>
+
+<!-- HISTÓRICO -->
+<div class="container hidden" id="historico">
+<button class="btn-dark" onclick="voltar()">⬅ Voltar</button>
+<h2>Histórico</h2>
+
+<select id="filtroPatio">
+<option value="">Todos</option>
+<option value="CAS">CAS</option>
+<option value="13000">13-000</option>
+</select>
+
+<button class="btn" onclick="filtrarHist()">Filtrar</button>
+
+<table class="table">
+<thead><tr><th>Data</th><th>Tipo</th><th>Pátio</th><th>Info</th></tr></thead>
+<tbody id="tabelaHist"></tbody>
+</table>
+</div>
+
+<script>
+let tipoAtual='cp';
+
+function verDashboardGeral(){
+  document.getElementById('menu').classList.add('hidden');
+  document.getElementById('dashboardGeral').classList.remove('hidden');
+
+  gerarGrafico('CAS','graficoCAS');
+  gerarGrafico('13000','grafico13000');
+}
+
+function gerarGrafico(patio,id){
+  let tipos=['cp','pare','trava'];
+  let html='';
+
+  tipos.forEach(t=>{
+    let dados=JSON.parse(localStorage.getItem('dados_'+t))||[];
+    let perdas=JSON.parse(localStorage.getItem('perdas_'+t))||{};
+
+    let filtrado=dados.filter(d=>d.patio===patio);
+    let perda=perdas[patio]||0;
+
+    html+=`<div class='box'>${t.toUpperCase()}<br>Qtd:${filtrado.length}<br>Perda:${perda}<br>Estoque:${filtrado.length - perda}</div>`;
+  });
+
+  document.getElementById(id).innerHTML=html;
+}
+
+function abrirTela(tipo){
+  tipoAtual=tipo;
+  document.getElementById('menu').classList.add('hidden');
+  document.getElementById('tela').classList.remove('hidden');
+  carregar();
+}
+
+function voltar(){
+  document.getElementById('menu').classList.remove('hidden');
+  document.getElementById('tela').classList.add('hidden');
+  document.getElementById('historico').classList.add('hidden');
+  document.getElementById('dashboardGeral').classList.add('hidden');
+}
+
+function chave(){return 'dados_'+tipoAtual;}
+function chavePerda(){return 'perdas_'+tipoAtual;}
+
+function registrar(){
+  let patio=document.getElementById('patio').value;
+  let nome=document.getElementById('nome').value;
+  let numero=document.getElementById('numero').value;
+  if(nome==='') return alert('Preencha');
+
+  let dados=JSON.parse(localStorage.getItem(chave()))||[];
+  dados.push({data:new Date().toLocaleString('pt-BR'),patio,nome,numero});
+  localStorage.setItem(chave(),JSON.stringify(dados));
+
+  salvarHistorico(tipoAtual,patio,nome+' - '+numero);
+
+  // LIMPAR CAMPOS AUTOMATICAMENTE
+  document.getElementById('nome').value='';
+  document.getElementById('numero').value='';
+
+  carregar();
+}
+
+function registrarPerda(){
+  let patio=document.getElementById('patio').value;
+  let perdas=JSON.parse(localStorage.getItem(chavePerda()))||{};
+  perdas[patio]=(perdas[patio]||0)+1;
+  localStorage.setItem(chavePerda(),JSON.stringify(perdas));
+
+  salvarHistorico(tipoAtual,patio,'Perda');
+  carregar();
+}
+
+function carregar(){
+  let dados=JSON.parse(localStorage.getItem(chave()))||[];
+  let perdas=JSON.parse(localStorage.getItem(chavePerda()))||{};
+
+  let cas=dados.filter(d=>d.patio==='CAS');
+  let p13000=dados.filter(d=>d.patio==='13000');
+
+  montarDash('dashCAS',cas,perdas['CAS']||0);
+  montarDash('dash13000',p13000,perdas['13000']||0);
+
+  let tb=document.getElementById('tabela'); tb.innerHTML='';
+  dados.forEach(d=>{
+    tb.innerHTML+=`<tr><td>${d.data}</td><td>${d.patio}</td><td>${d.nome}</td><td>${d.numero}</td></tr>`;
+  });
+}
+
+function montarDash(id,dados,perda){
+  let el=document.getElementById(id);
+  el.innerHTML=`
+  <div class='box'>Qtd<br><b>${dados.length}</b></div>
+  <div class='box'>Perdas<br><b>${perda}</b></div>
+  <div class='box'>Estoque<br><b>${dados.length - perda}</b></div>`;
+}
+
+function salvarHistorico(tipo,patio,info){
+  let hist=JSON.parse(localStorage.getItem('hist'))||[];
+  hist.push({data:new Date().toLocaleString('pt-BR'),tipo,patio,info});
+  localStorage.setItem('hist',JSON.stringify(hist));
+}
+
+function abrirHistorico(){
+  document.getElementById('menu').classList.add('hidden');
+  document.getElementById('historico').classList.remove('hidden');
+  carregarHist();
+}
+
+function carregarHist(){
+  let dados=JSON.parse(localStorage.getItem('hist'))||[];
+  renderHist(dados);
+}
+
+function filtrarHist(){
+  let patio=document.getElementById('filtroPatio').value;
+  let dados=JSON.parse(localStorage.getItem('hist'))||[];
+  if(patio) dados=dados.filter(d=>d.patio===patio);
+  renderHist(dados);
+}
+
+function renderHist(dados){
+  let tb=document.getElementById('tabelaHist'); tb.innerHTML='';
+  dados.forEach(d=>{
+    tb.innerHTML+=`<tr><td>${d.data}</td><td>${d.tipo}</td><td>${d.patio}</td><td>${d.info}</td></tr>`;
+  });
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+function gerarGrafico(patio,id){
+  let tipos=['cp','pare','trava'];
+  let labels=[];
+  let quantidades=[];
+  let perdasArr=[];
+
+  tipos.forEach(t=>{
+    let dados=JSON.parse(localStorage.getItem('dados_'+t))||[];
+    let perdas=JSON.parse(localStorage.getItem('perdas_'+t))||{};
+
+    let filtrado=dados.filter(d=>d.patio===patio);
+    let perda=perdas[patio]||0;
+
+    labels.push(t.toUpperCase());
+    quantidades.push(filtrado.length);
+    perdasArr.push(perda);
+  });
+
+  document.getElementById(id).innerHTML=`<div style='height:200px'><canvas id="${id}_chart"></canvas></div>`;
+
+  new Chart(document.getElementById(id+'_chart'),{
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{legend:{position:'top'}},
+      scales:{y:{beginAtZero:true}}
+    },
+    plugins:[],
+
+    type:'bar',
+    data:{
+      labels:labels,
+      datasets:[
+        {label:'Quantidade',data:quantidades},
+        {label:'Perdas',data:perdasArr}
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{position:'top'}},
+      scales:{y:{beginAtZero:true}}
+    }
+  });
+}
+</script>
+</body>
+</html>
